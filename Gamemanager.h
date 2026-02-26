@@ -4,7 +4,7 @@
 #include "BattleSystem.h"
 
 // สถานะของเกมในปัจจุบัน
-enum GameState { PLAYING, STAGE_CLEAR, GAME_OVER, GAME_WON };
+enum GameState { MAIN_MENU, PLAYING, ANSWERING_MATH, STAGE_CLEAR, GAME_OVER, GAME_WON };
 
 class GameManager {
 public:
@@ -13,9 +13,19 @@ public:
     int currentStage;
     GameState state;
 
+    // ตัวแปรสำหรับระบบคณิตศาสตร์
+    std::string mathQuestion;
+    int mathAnswer;
+    std::string playerInputString;
+    bool isQueuedUlt; // จำไว้ว่าผู้เล่นกดโจมตีปกติ หรือ ท่าไม้ตาย
+
     GameManager();
     void initPlayerTeam();
     void startStage(int stage);
     void updateBattleState(); // เช็คผลแพ้ชนะหลังจบเทิร์น
     void proceedToNextStage();
+
+    // ฟังก์ชันใหม่สำหรับคณิตศาสตร์
+    void triggerMathQuestion(bool isUlt);
+    void submitMathAnswer();
 };
