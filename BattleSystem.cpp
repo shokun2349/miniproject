@@ -31,10 +31,9 @@ bool BattleSystem::isGameOver() {
             else enemyAlive++;
         }
     }
-    if (playerAlive == 0) { addLog("--- DEFEAT! All players are dead. ---"); return true; }
-    if (enemyAlive == 0) { addLog("--- VICTORY! All enemies are dead. ---"); return true; }
-    return false;
+    return (playerAlive == 0 || enemyAlive == 0); 
 }
+
 
 Character* BattleSystem::getTarget(bool isPlayer) {
     for (auto& f : fighters) {
