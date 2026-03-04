@@ -1,42 +1,52 @@
 #include "Gamemanager.h"
 #include <random>
+
 GameManager::GameManager() {
     currentStage = 1;
     state = MAIN_MENU;
-    initPlayerTeam();
-    
+    // ไม่มีการ Fix ตัวละครตรงนี้แล้ว เพราะเราจะให้ผู้เล่นเลือกเอง
 }
 
-void GameManager::initPlayerTeam() {
-    playerRoster.push_back(Character("Knight(Player)", KNIGHT, 120, 25, 0, 15, 10, true));
-    playerRoster.push_back(Character("Mage(Player)", MAGE, 80, 10, 40, 5, 12, true));
-    playerRoster.push_back(Character("Support(Player)", SUPPORT, 90, 10, 25, 8, 15, true));
+// ฟังก์ชันนี้แหละครับที่ Linker หาไม่เจอในตอนแรก!
+void GameManager::setPlayerTeam(const std::vector<ClassType>& selectedClasses) {
+    playerRoster.clear();
+    for (ClassType type : selectedClasses) {
+        if (type == KNIGHT) 
+            playerRoster.push_back(Character("Knight", KNIGHT, 120, 25, 0, 15, 10, true));
+        else if (type == ARCHER) 
+            playerRoster.push_back(Character("Archer", ARCHER, 90, 30, 0, 10, 20, true));
+        else if (type == MAGE) 
+            playerRoster.push_back(Character("Mage", MAGE, 80, 10, 40, 5, 12, true));
+        else if (type == TANK) 
+            playerRoster.push_back(Character("Tank", TANK, 150, 15, 0, 25, 5, true));
+        else if (type == SUPPORT) 
+            playerRoster.push_back(Character("Support", SUPPORT, 90, 10, 25, 8, 15, true));
+        else if (type == SPECIAL) 
+            playerRoster.push_back(Character("Hero", SPECIAL, 100, 25, 25, 15, 18, true));
+    }
 }
 
 void GameManager::startStage(int stage) {
-    currentBattle = BattleSystem(); // รีเซ็ตระบบต่อสู้ใหม่หมด
+    currentBattle = BattleSystem(); 
     currentBattle.addLog("--- STAGE " + std::to_string(stage) + " START! ---");
 
-    // ดึงเฉพาะตัวละครผู้เล่นที่ยังมีชีวิตอยู่เข้าร่วมต่อสู้
     for (auto& p : playerRoster) {
         if (p.isAlive()) {
-            p.currentTurn = 0; // รีเซ็ตเกจท่าไม้ตายเมื่อเริ่มด่านใหม่
+            p.currentTurn = 0; 
             currentBattle.fighters.push_back(p);
         }
     }
 
-    // เซ็ตศัตรูตามด่าน
     if (stage == 1) {
         currentBattle.fighters.push_back(Character("Goblin A", ARCHER, 60, 15, 0, 5, 18, false));
         currentBattle.fighters.push_back(Character("Orc Boss", TANK, 200, 20, 0, 20, 8, false));
     } else if (stage == 2) {
         currentBattle.addLog("Warning: The Demon King approaches!");
-        // มอนสเตอร์ด่าน 2 เก่งขึ้น อึดขึ้น ไวขึ้น
         currentBattle.fighters.push_back(Character("Dark Elf", MAGE, 100, 20, 35, 10, 22, false)); 
         currentBattle.fighters.push_back(Character("Demon King", SPECIAL, 300, 30, 20, 25, 15, false));
     }
 
-    currentBattle.sortTurnOrderBySpeed(); // เรียงคิวใหม่
+    currentBattle.sortTurnOrderBySpeed(); 
     state = PLAYING;
 }
 
@@ -46,12 +56,9 @@ void GameManager::updateBattleState() {
     if (currentBattle.isGameOver()) {
         int playerAlive = 0;
 
-        // อัปเดตเลือดของตัวละครที่รอดชีวิตกลับไปยัง Roster หลัก
         for (auto& f : currentBattle.fighters) {
             if (f.isPlayer) {
                 if (f.isAlive()) playerAlive++;
-                
-                // หาตัวละครใน Roster แล้วอัปเดต HP ล่าสุด
                 for (auto& p : playerRoster) {
                     if (p.name == f.name) {
                         p.hp = f.hp; 
@@ -60,10 +67,11 @@ void GameManager::updateBattleState() {
             }
         }
 
-        // ตัดสินผลลัพธ์
         if (playerAlive == 0) {
+            currentBattle.addLog("--- DEFEAT! All players are dead. ---");
             state = GAME_OVER;
         } else {
+            currentBattle.addLog("--- VICTORY! All enemies are dead. ---");
             if (currentStage == 1) {
                 state = STAGE_CLEAR;
             } else {
@@ -80,13 +88,11 @@ void GameManager::proceedToNextStage() {
     }
 }
 
-//  ฟังก์ชันนี้จะถูกเรียกเมื่อผู้เล่นเลือกโจมตีหรือใช้ท่าไม้ตาย มันจะสุ่มคำถามคณิตศาสตร์และรอให้ผู้เล่นตอบ
 void GameManager::triggerMathQuestion(bool isUlt) {
     isQueuedUlt = isUlt;
-    playerInputString = ""; // ล้างคำตอบเก่า
-    state = ANSWERING_MATH; // เปลี่ยนสถานะให้เกมหยุดรอ
+    playerInputString = ""; 
+    state = ANSWERING_MATH; 
 
-    // สุ่มตัวเลขและเครื่องหมาย
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_int_distribution<> distNum(1, 20);
@@ -100,11 +106,11 @@ void GameManager::triggerMathQuestion(bool isUlt) {
         mathQuestion = std::to_string(a) + " + " + std::to_string(b) + " = ?";
         mathAnswer = a + b;
     } else if (op == 1) {
-        if (a < b) std::swap(a, b); // สลับไม่ให้คำตอบติดลบ เพื่อให้พิมพ์ง่ายขึ้น
+        if (a < b) std::swap(a, b); 
         mathQuestion = std::to_string(a) + " - " + std::to_string(b) + " = ?";
         mathAnswer = a - b;
     } else {
-        a = (a % 10) + 1; // เลขคูณเอาแค่ 1-10
+        a = (a % 10) + 1; 
         b = (b % 10) + 1;
         mathQuestion = std::to_string(a) + " * " + std::to_string(b) + " = ?";
         mathAnswer = a * b;
@@ -115,7 +121,7 @@ void GameManager::submitMathAnswer() {
     int playerAns = -9999;
     try {
         if (!playerInputString.empty()) {
-            playerAns = std::stoi(playerInputString); // แปลงข้อความที่พิมพ์เป็นตัวเลข
+            playerAns = std::stoi(playerInputString); 
         }
     } catch (...) {
         playerAns = -9999;
@@ -129,11 +135,9 @@ void GameManager::submitMathAnswer() {
         if (isQueuedUlt) currentBattle.executeUltimate(attacker, *target);
         else currentBattle.executeAttack(attacker, *target);
     } else {
-        // ถ้าตอบผิด ให้โจมตีพลาด
         currentBattle.addLog("Wrong Answer! " + attacker.name + " got confused and missed!");
     }
 
-    // จบเทิร์นและกลับสู่สถานะต่อสู้
     currentBattle.nextTurn();
     updateBattleState();
     
