@@ -2,7 +2,18 @@
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
 #include <iostream>
+#include <algorithm>
 #include "Gamemanager.h" 
+
+struct CharacterSlot {
+    ClassType type;
+    sf::RectangleShape shape;
+    sf::Text label;
+    bool isSelected = false;
+
+    // เพิ่ม Constructor ให้รับค่า font แล้วส่งไปให้ label
+    CharacterSlot(const sf::Font& font) : label(font) {}
+};
 
 int main() {
     sf::RenderWindow window(sf::VideoMode({800, 600}), "Turn-Based RPG Mechanics");
@@ -15,20 +26,50 @@ int main() {
     }
 
     GameManager game;
-
     bool turnActionCompleted = false;
     sf::Clock enemyTimer;
     bool isEnemyWaiting = false;
 
-    // --- สร้างปุ่ม Play ---
+    // --- UI สำหรับหน้า Main Menu ---
     sf::RectangleShape playButton({200.0f, 60.0f});
     playButton.setPosition({300.0f, 250.0f});
-    playButton.setFillColor(sf::Color(50, 150, 50)); // สีเขียว
+    playButton.setFillColor(sf::Color(50, 150, 50)); 
 
-    // --- สร้างปุ่ม Quit ---
     sf::RectangleShape quitButton({200.0f, 60.0f});
     quitButton.setPosition({300.0f, 350.0f});
-    quitButton.setFillColor(sf::Color(150, 50, 50)); // สีแดง
+    quitButton.setFillColor(sf::Color(150, 50, 50)); 
+
+    // --- UI สำหรับหน้า Party Selection ---
+    std::vector<std::string> classNames = {"KNIGHT", "ARCHER", "MAGE", "TANK", "SUPPORT", "SPECIAL"};
+    std::vector<CharacterSlot> charButtons;
+    std::vector<ClassType> selectedParty;
+
+    for (int i = 0; i < 6; ++i) {
+        CharacterSlot slot(font);
+        slot.type = static_cast<ClassType>(i);
+        slot.shape.setSize({150.0f, 50.0f});
+        float xPos = (i % 2 == 0) ? 100.0f : 300.0f;
+        float yPos = 150.0f + ((i / 2) * 80.0f);
+        slot.shape.setPosition({xPos, yPos});
+        slot.shape.setFillColor(sf::Color(50, 50, 150));
+        
+        slot.label.setFont(font);
+        slot.label.setString(classNames[i]);
+        slot.label.setCharacterSize(20);
+        slot.label.setPosition({xPos + 10.0f, yPos + 10.0f});
+        
+        charButtons.push_back(slot);
+    }
+
+    sf::RectangleShape confirmButton({200.0f, 60.0f});
+    confirmButton.setPosition({500.0f, 450.0f});
+    confirmButton.setFillColor(sf::Color(100, 100, 100));
+
+    sf::Text confirmText(font);
+    confirmText.setString("CONFIRM");
+    confirmText.setCharacterSize(24);
+    confirmText.setFillColor(sf::Color::White);
+    confirmText.setPosition({540.0f, 465.0f});
 
     while (window.isOpen()) {
         while (const std::optional<sf::Event> event = window.pollEvent()) {
@@ -36,27 +77,49 @@ int main() {
                 window.close();
             }
 
-            // --- เช็คการคลิกเมาส์ สำหรับหน้า Main Menu ---
+            // --- จัดการการคลิกเมาส์ ---
             if (const auto* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>()) {
                 if (mouseReleased->button == sf::Mouse::Button::Left) {
-                    // ดึงตำแหน่งเมาส์แปลงเป็น float เพื่อไปเช็คการชนกับกล่อง
                     sf::Vector2f mousePos(static_cast<float>(mouseReleased->position.x), 
                                           static_cast<float>(mouseReleased->position.y));
 
                     if (game.state == MAIN_MENU) {
-                        // ถ้าคลิกโดนปุ่ม Play
                         if (playButton.getGlobalBounds().contains(mousePos)) {
-                            game.startStage(1); // เริ่มด่าน 1 และเปลี่ยนสถานะเป็น PLAYING
+                            game.state = PARTY_SELECTION; 
                         }
-                        // ถ้าคลิกโดนปุ่ม Quit
                         else if (quitButton.getGlobalBounds().contains(mousePos)) {
                             window.close();
+                        }
+                    }
+                    else if (game.state == PARTY_SELECTION) {
+                        for (auto& btn : charButtons) {
+                            if (btn.shape.getGlobalBounds().contains(mousePos)) {
+                                auto it = std::find(selectedParty.begin(), selectedParty.end(), btn.type);
+                                if (it != selectedParty.end()) {
+                                    selectedParty.erase(it);
+                                    btn.isSelected = false;
+                                    btn.shape.setFillColor(sf::Color(50, 50, 150));
+                                } 
+                                else if (selectedParty.size() < 3) {
+                                    selectedParty.push_back(btn.type);
+                                    btn.isSelected = true;
+                                    btn.shape.setFillColor(sf::Color(50, 150, 50));
+                                }
+                            }
+                        }
+
+                        if (selectedParty.size() == 3) confirmButton.setFillColor(sf::Color(200, 150, 50));
+                        else confirmButton.setFillColor(sf::Color(100, 100, 100));
+
+                        if (selectedParty.size() == 3 && confirmButton.getGlobalBounds().contains(mousePos)) {
+                            game.setPlayerTeam(selectedParty);
+                            game.startStage(1); // เริ่มเข้าฉากต่อสู้
                         }
                     }
                 }
             }
 
-            // รับตัวหนังสือตอนพิมพ์คำตอบคณิตศาสตร์
+            // --- จัดการคีย์บอร์ด ---
             if (game.state == ANSWERING_MATH) {
                 if (const auto* textEntered = event->getIf<sf::Event::TextEntered>()) {
                     char32_t c = textEntered->unicode;
@@ -66,22 +129,19 @@ int main() {
                 }
             }
 
-            // รับปุ่มกดจากคีย์บอร์ด
             if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>()) {
-                
                 if (game.state == PLAYING && !game.currentBattle.isGameOver()) {
                     Character& currentFighter = game.currentBattle.fighters[game.currentBattle.currentTurnIndex];
-                    
                     if (currentFighter.isPlayer && currentFighter.isAlive()) {
                         Character* target = game.currentBattle.getTarget(true);
                         if (!target) continue;
 
                         if (keyReleased->code == sf::Keyboard::Key::Num1) {
-                            game.triggerMathQuestion(false); // เรียกโจทย์คณิต
+                            game.triggerMathQuestion(false); 
                         } 
                         else if (keyReleased->code == sf::Keyboard::Key::Num2) {
                             if (currentFighter.canUseUlt()) {
-                                game.triggerMathQuestion(true); // เรียกโจทย์คณิต
+                                game.triggerMathQuestion(true); 
                             } else {
                                 game.currentBattle.addLog("Ultimate not ready!");
                             }
@@ -107,22 +167,19 @@ int main() {
             }
         }
 
-        // ระบบ Auto ศัตรู
+        // --- ระบบ Auto ศัตรู ---
         if (game.state == PLAYING && !game.currentBattle.isGameOver()) {
             Character& currentFighter = game.currentBattle.fighters[game.currentBattle.currentTurnIndex];
             if (!currentFighter.isPlayer && currentFighter.isAlive()) {
-                
                 if (!isEnemyWaiting) {
                     isEnemyWaiting = true;
                     enemyTimer.restart(); 
                 }
-
                 if (isEnemyWaiting && enemyTimer.getElapsedTime().asSeconds() >= 1.0f) {
                     Character* target = game.currentBattle.getTarget(false);
                     if (target) {
                         if (currentFighter.canUseUlt()) game.currentBattle.executeUltimate(currentFighter, *target);
                         else game.currentBattle.executeAttack(currentFighter, *target);
-                        
                         turnActionCompleted = true;
                     }
                     isEnemyWaiting = false; 
@@ -130,19 +187,19 @@ int main() {
             }
         }
 
-        // เปลี่ยนเทิร์น
         if (turnActionCompleted) {
             game.currentBattle.nextTurn();
             game.updateBattleState(); 
             turnActionCompleted = false;
         }
 
-        // --- เริ่มเคลียร์หน้าจอและวาดภาพ ---
+        // ==========================================
+        // --- ส่วนวาดกราฟิกลงจอ (DRAWING SECTION) ---
+        // ==========================================
         window.clear(sf::Color(30, 30, 30));
 
-        // ถ้าระบบอยู่ในหน้า MAIN_MENU ให้วาดแค่เมนู
+        // 1. วาดหน้า Main Menu
         if (game.state == MAIN_MENU) {
-            // ชื่อเกม
             sf::Text titleText(font);
             titleText.setString("EPIC MATH RPG");
             titleText.setCharacterSize(50);
@@ -150,11 +207,9 @@ int main() {
             titleText.setPosition({210.0f, 100.0f});
             window.draw(titleText);
 
-            // วาดกล่องปุ่ม
             window.draw(playButton);
             window.draw(quitButton);
 
-            // ข้อความบนปุ่ม
             sf::Text playText(font);
             playText.setString("PLAY");
             playText.setCharacterSize(24);
@@ -169,7 +224,35 @@ int main() {
             quitText.setPosition({365.0f, 365.0f});
             window.draw(quitText);
         }
-        // ถ้าไม่อยู่ในเมนูหลัก ก็วาดฉากต่อสู้ตามปกติ
+        // 2. วาดหน้า เลือกตัวละคร (ที่เคยหายไป)
+        else if (game.state == PARTY_SELECTION) {
+            sf::Text title(font);
+            title.setString("Select Your Party (Choose 3)");
+            title.setCharacterSize(30);
+            title.setFillColor(sf::Color::White);
+            title.setPosition({200.0f, 50.0f});
+            window.draw(title);
+
+            for (auto& btn : charButtons) {
+                window.draw(btn.shape);
+                window.draw(btn.label);
+            }
+
+            sf::Text statusText(font);
+            statusText.setCharacterSize(22);
+            statusText.setPosition({500.0f, 150.0f});
+            statusText.setFillColor(sf::Color::White);
+            std::string partyStr = "Current Party:\n";
+            for (auto p : selectedParty) {
+                partyStr += "- " + classNames[static_cast<int>(p)] + "\n";
+            }
+            statusText.setString(partyStr);
+            window.draw(statusText);
+
+            window.draw(confirmButton);
+            window.draw(confirmText);
+        }
+        // 3. วาดหน้าฉากต่อสู้
         else {
             sf::Text statText(font);
             statText.setCharacterSize(16);
@@ -205,7 +288,6 @@ int main() {
             logText.setCharacterSize(18);
             logText.setFillColor(sf::Color::White);
             float logY = 350.0f;
-            
             for (const auto& log : game.currentBattle.battleLogs) {
                 logText.setString(log);
                 logText.setPosition({50.0f, logY});
@@ -238,7 +320,7 @@ int main() {
                 guideText.setFillColor(sf::Color::Green);
                 window.draw(guideText);
             } else if (game.state == STAGE_CLEAR) {
-                guideText.setString("Stage Clear! Press 'Enter' to proceed to Stage 2.");
+                guideText.setString("Stage Clear! Press 'Enter' to proceed.");
                 guideText.setFillColor(sf::Color::Yellow);
                 window.draw(guideText);
             } else if (game.state == GAME_OVER) {
