@@ -22,7 +22,7 @@ public:
     GameManager();
     // ฟังก์ชันใหม่สำหรับจัดทีมตามที่ผู้เล่นเลือก
     void setPlayerTeam(const std::vector<ClassType>& selectedClasses);
-    
+
     void initPlayerTeam();
     void startStage(int stage);
     void updateBattleState(); // เช็คผลแพ้ชนะหลังจบเทิร์น
@@ -31,4 +31,6 @@ public:
     // ฟังก์ชันใหม่สำหรับคณิตศาสตร์
     void triggerMathQuestion(bool isUlt);
     void submitMathAnswer();
+    
+
 };
