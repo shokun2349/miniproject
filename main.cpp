@@ -11,7 +11,6 @@ struct CharacterSlot {
     sf::Text label;
     bool isSelected = false;
 
-    // เพิ่ม Constructor ให้รับค่า font แล้วส่งไปให้ label
     CharacterSlot(const sf::Font& font) : label(font) {}
 };
 
@@ -113,7 +112,7 @@ int main() {
 
                         if (selectedParty.size() == 3 && confirmButton.getGlobalBounds().contains(mousePos)) {
                             game.setPlayerTeam(selectedParty);
-                            game.startStage(1); // เริ่มเข้าฉากต่อสู้
+                            game.startStage(1); 
                         }
                     }
                 }
@@ -224,7 +223,7 @@ int main() {
             quitText.setPosition({365.0f, 365.0f});
             window.draw(quitText);
         }
-        // 2. วาดหน้า เลือกตัวละคร (ที่เคยหายไป)
+        // 2. วาดหน้า เลือกตัวละคร
         else if (game.state == PARTY_SELECTION) {
             sf::Text title(font);
             title.setString("Select Your Party (Choose 3)");
@@ -254,13 +253,30 @@ int main() {
         }
         // 3. วาดหน้าฉากต่อสู้
         else {
+            // ==========================================
+            // แสดงเลขด่าน (Stage) ด้านบนตรงกลาง
+            // ==========================================
+            sf::Text stageText(font);
+            stageText.setCharacterSize(28);
+            stageText.setFillColor(sf::Color::White);
+            stageText.setStyle(sf::Text::Bold);
+            stageText.setString("--- STAGE " + std::to_string(game.currentStage) + " ---");
+            stageText.setPosition({320.0f, 10.0f}); 
+            window.draw(stageText);
+
             sf::Text statText(font);
             statText.setCharacterSize(16);
-            float playerYPos = 50.0f;
-            float enemyYPos = 50.0f;
+            
+            // ขยับ Y ลงมาเพื่อไม่ให้ข้อความไปทับกับคำว่า STAGE ด้านบน
+            float playerYPos = 70.0f;
+            float enemyYPos = 70.0f;
             
             for (size_t i = 0; i < game.currentBattle.fighters.size(); ++i) {
                 auto& f = game.currentBattle.fighters[i];
+                
+                float xPos = f.isPlayer ? 50.0f : 450.0f;
+                float yPos = f.isPlayer ? playerYPos : enemyYPos;
+
                 std::string info = f.name + " (HP: " + std::to_string(f.hp) + "/" + std::to_string(f.maxHp) + ") ";
                 if (f.isAlive()) info += "Ult Charge: " + std::to_string(std::min(f.currentTurn, f.ultCooldown)) + "/" + std::to_string(f.ultCooldown);
                 else info += " [DEAD]";
@@ -273,15 +289,37 @@ int main() {
                 }
 
                 statText.setString(info);
-                
-                if (f.isPlayer) {
-                    statText.setPosition({50.0f, playerYPos});
-                    playerYPos += 40.0f;
-                } else {
-                    statText.setPosition({450.0f, enemyYPos});
-                    enemyYPos += 40.0f;
-                }
+                statText.setPosition({xPos, yPos});
                 window.draw(statText);
+
+                // ==========================================
+                // วาดหลอดเลือด (Health Bar)
+                // ==========================================
+                if (f.isAlive()) {
+                    float barWidth = 200.0f; 
+                    float barHeight = 12.0f; 
+                    
+                    sf::RectangleShape barBack(sf::Vector2f(barWidth, barHeight));
+                    barBack.setFillColor(sf::Color(50, 50, 50));
+                    barBack.setPosition({xPos, yPos + 25.0f}); 
+                    window.draw(barBack);
+
+                    float hpPercentage = static_cast<float>(f.hp) / f.maxHp;
+                    if (hpPercentage < 0.0f) hpPercentage = 0.0f; 
+                    
+                    sf::RectangleShape barFront(sf::Vector2f(barWidth * hpPercentage, barHeight));
+                    
+                    if (hpPercentage > 0.5f) barFront.setFillColor(sf::Color::Green);
+                    else if (hpPercentage > 0.2f) barFront.setFillColor(sf::Color::Yellow);
+                    else barFront.setFillColor(sf::Color::Red);
+
+                    barFront.setPosition({xPos, yPos + 25.0f});
+                    window.draw(barFront);
+                }
+                
+                // อัปเดตตำแหน่ง Y สำหรับตัวละครตัวถัดไป
+                if (f.isPlayer) playerYPos += 60.0f; 
+                else enemyYPos += 60.0f;  
             }
 
             sf::Text logText(font);
@@ -295,10 +333,13 @@ int main() {
                 logY += 25.0f;
             }
 
+            // ==========================================
+            // กล่องโจทย์คณิตศาสตร์
+            // ==========================================
             if (game.state == ANSWERING_MATH) {
-                sf::RectangleShape mathBox({400.0f, 150.0f});
+                sf::RectangleShape mathBox({550.0f, 250.0f});
                 mathBox.setFillColor(sf::Color(20, 50, 100, 230)); 
-                mathBox.setPosition({200.0f, 150.0f});
+                mathBox.setPosition({125.0f, 120.0f}); 
                 mathBox.setOutlineThickness(3.0f);
                 mathBox.setOutlineColor(sf::Color::White);
                 window.draw(mathBox);
@@ -307,7 +348,7 @@ int main() {
                 mathUI.setCharacterSize(24);
                 mathUI.setFillColor(sf::Color::White);
                 mathUI.setString("Solve to Attack!\n\n" + game.mathQuestion + "\n\nAnswer: " + game.playerInputString + "_");
-                mathUI.setPosition({220.0f, 170.0f});
+                mathUI.setPosition({150.0f, 150.0f}); 
                 window.draw(mathUI);
             }
 
